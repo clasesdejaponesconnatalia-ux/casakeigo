@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Casa del Keigo - Videojuego</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      margin: 0;
+      background: #121826;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      color: #fff;
+    }
+
+    .game-wrapper {
+      position: relative;
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+      border: 2px solid #3b82f6;
+    }
+
+    canvas {
+      display: block;
+      background: #1e293b;
+    }
+
+    .hud {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      padding: 6px 10px;
+      background: rgba(15,23,42,0.8);
+      border-radius: 12px;
+      font-size: 14px;
+    }
+
+    .hud span {
+      display: block;
+      line-height: 1.3;
+    }
+
+    .door-message {
+      position: absolute;
+      bottom: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 6px 12px;
+      background: rgba(15,23,42,0.85);
+      border-radius: 999px;
+      font-size: 14px;
+      border: 1px solid #38bdf8;
+    }
+
+    .quiz-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(15,23,42,0.92);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .quiz-card {
+      max-width: 560px;
+      width: 100%;
+      background: #0f172a;
+      border-radius: 20px;
+      padding: 18px 20px;
+      box-shadow: 0 16px 30px rgba(0,0,0,0.6);
+      border: 1px solid #38bdf8;
+    }
+
+    .quiz-room {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      opacity: 0.8;
+      margin-bottom: 4px;
+    }
+
+    .quiz-title {
+      font-size: 17px;
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+
+    .quiz-text {
+      font-size: 14px;
+      line-height: 1.5;
+      margin-bottom: 14px;
+    }
+
+    .quiz-options {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .quiz-btn {
+      border: 1px solid #64748b;
+      background: #020617;
+      color: #e5e7eb;
+      border-radius: 999px;
+      padding: 7px 10px;
+      font-size: 14px;
+      text-align: left;
+      cursor: pointer;
+      transition: transform 0.08s ease, box-shadow 0.08s ease, border-color 0.08s ease, background 0.08s ease;
+    }
+
+    .quiz-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 16px rgba(0,0,0,0.45);
+      border-color: #38bdf8;
+      background: #020617;
+    }
+
+    .quiz-feedback {
+      min-height: 32px;
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+
+    .quiz-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      opacity: 0.75;
+    }
+
+    .quiz-footer span {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .pill {
+      border-radius: 999px;
+      padding: 2px 8px;
+      border: 1px solid #38bdf8;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .win-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(15,23,42,0.95);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .win-card {
+      max-width: 460px;
+      width: 100%;
+      background: #020617;
+      border-radius: 20px;
+      padding: 20px;
+      text-align: center;
+      border: 1px solid #a855f7;
+      box-shadow: 0 16px 30px rgba(0,0,0,0.7);
+    }
+
+    .win-card h2 {
+      margin-top: 0;
+      margin-bottom: 10px;
+    }
+
+    .win-card p {
+      font-size: 14px;
+      line-height: 1.6;
+      margin-bottom: 12px;
+    }
+
+    .win-card button {
+      border-radius: 999px;
+      border: none;
+      padding: 8px 16px;
+      cursor: pointer;
+      font-size: 14px;
+      background: #a855f7;
+      color: #0b1120;
+      font-weight: 600;
+    }
+
+    .win-card button:hover {
+      filter: brightness(1.1);
+    }
+  </style>
+</head>
+<body>
+  <div class="game-wrapper">
+    <canvas id="game" width="900" height="600"></canvas>
+    <div class="hud" id="hud">
+      <span><strong>Habitación:</strong> <span id="roomName">-</span></span>
+      <span><strong>Progreso:</strong> <span id="progressText">0 / 10</span></span>
+      <span style="opacity:0.8;">Mueve al personaje con las flechas. Acércate a la puerta y pulsa <strong>ESPACIO</strong>.</span>
+    </div>
+    <div class="door-message" id="doorMessage" style="display:none;">
+      Puerta encontrada. Pulsa <strong>ESPACIO</strong> para abrirla y responder el quiz.
+    </div>
+
+    <!-- Quiz -->
+    <div class="quiz-overlay" id="quizOverlay">
+      <div class="quiz-card">
+        <div class="quiz-room" id="quizRoomName"></div>
+        <div class="quiz-title">Quiz de Sonkeigo / Kenjōgo</div>
+        <div class="quiz-text" id="quizQuestion"></div>
+        <div class="quiz-options" id="quizOptions"></div>
+        <div class="quiz-feedback" id="quizFeedback"></div>
+        <div class="quiz-footer">
+          <span>
+            <span class="pill">Sonkeigo</span>
+            <span class="pill">Kenjōgo</span>
+          </span>
+          <span>Consejo: piensa “¿a quién estoy elevando?”</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Final -->
+    <div class="win-overlay" id="winOverlay">
+      <div class="win-card">
+        <h2>🏠✨ ¡Atravesaste toda la casa del Keigo!</h2>
+        <p>
+          Respondiste correctamente los 10 quizzes de Sonkeigo y Kenjōgo.<br />
+          ¡Tu respeto y modestia están en perfecto equilibrio! 💮
+        </p>
+        <p style="font-size:13px;opacity:0.8;">
+          Puedes refrescar la página para volver a jugar o usar este juego en tus clases.
+        </p>
+        <button onclick="location.reload()">Volver a empezar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // === CONFIGURACIÓN DEL JUEGO ===
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+
+    const hudRoomName = document.getElementById('roomName');
+    const hudProgress = document.getElementById('progressText');
+    const doorMessage = document.getElementById('doorMessage');
+
+    const quizOverlay = document.getElementById('quizOverlay');
+    const quizRoomName = document.getElementById('quizRoomName');
+    const quizQuestion = document.getElementById('quizQuestion');
+    const quizOptions = document.getElementById('quizOptions');
+    const quizFeedback = document.getElementById('quizFeedback');
+
+    const winOverlay = document.getElementById('winOverlay');
+
+    const WIDTH = canvas.width;
+    const HEIGHT = canvas.height;
+
+    // Caché de imágenes de fondo
+    const bgImages = {};
+
+    function getBgImage(path) {
+      if (!path) return null;
+      if (bgImages[path]) return bgImages[path];
+      const img = new Image();
+      img.src = path;
+      bgImages[path] = img;
+      return img;
+    }
+
+    // Habitaciones: con bg y doorSide (side: right/left/top/bottom)
+    const rooms = [
+      {
+        id: 0,
+        name: "Entrada / Sala",
+        theme: "living",
+        bg: "sala.png",
+        doorSide: "right",
+        question: {
+          text: "En la sala te presentan al director de la empresa. Quieres decir en japonés con respeto: «El director está aquí». ¿Cuál forma en Sonkeigo es correcta?",
+          options: [
+            "社長が来ます。",
+            "社長がいらっしゃいます。",
+            "社長がまいります。"
+          ],
+          correctIndex: 1,
+          explanation: "Para hablar respetuosamente de la acción del director (persona de más estatus), usamos Sonkeigo: いらっしゃいます。"
+        }
+      },
+      {
+        id: 1,
+        name: "Comedor",
+        theme: "comedor",
+        bg: "comedor.png",
+        doorSide: "bottom",
+        question: {
+          text: "En el comedor le hablas al cliente de lo que TÚ harás: «Mañana yo iré a su casa». ¿Cuál forma de Kenjōgo es adecuada para mostrar modestia?",
+          options: [
+            "あした、わたしがうかがいます。",
+            "あした、わたしがいらっしゃいます。",
+            "あした、わたしが行きます。"
+          ],
+          correctIndex: 0,
+          explanation: "Cuando hablas de tus propias acciones hacia la persona respetada, usas Kenjōgo: うかがいます。"
+        }
+      },
+      {
+        id: 2,
+        name: "Cocina",
+        theme: "cocina",
+        bg: "cocina.png",
+        doorSide: "left",
+        question: {
+          text: "En la cocina vas a ofrecerle bebida al profesor. Quieres decir: «Por favor, beba té». ¿Cuál opción usa Sonkeigo natural?",
+          options: [
+            "お茶を飲んでください。",
+            "お茶をお飲みください。",
+            "お茶をお飲みになってください。"
+          ],
+          correctIndex: 2,
+          explanation: "Para invitar cortésmente a una persona de estatus alto a beber, usamos Sonkeigo como お飲みになってください。"
+        }
+      },
+      {
+        id: 3,
+        name: "Biblioteca",
+        theme: "biblioteca",
+        bg: "biblioteca.png",
+        doorSide: "top",
+        question: {
+          text: "En la biblioteca, hablas del profesor (sujeto respetado) leyendo un libro. ¿Cuál oración usa Sonkeigo correctamente?",
+          options: [
+            "先生は本を読みます。",
+            "先生は本を読んでおります。",
+            "先生は本をお読みになっています。"
+          ],
+          correctIndex: 2,
+          explanation: "Para describir la acción del profesor (respetado) usamos Sonkeigo: お読みになっています。"
+        }
+      },
+      {
+        id: 4,
+        name: "Dormitorio",
+        theme: "dormitorio",
+        bg: "dormitorio.png",
+        doorSide: "right",
+        question: {
+          text: "En el dormitorio, quieres decir con respeto: «El presidente está durmiendo». ¿Cuál Sonkeigo es correcto?",
+          options: [
+            "社長は寝ています。",
+            "社長はお休みになっています。",
+            "社長は休みます。"
+          ],
+          correctIndex: 1,
+          explanation: "Para dormir en Sonkeigo se usa お休みになります, elevando la acción de la persona respetada."
+        }
+      },
+      {
+        id: 5,
+        name: "Baño",
+        theme: "bano",
+        bg: "bano.png",
+        doorSide: "bottom",
+        question: {
+          text: "En el baño de visitas, quieres preguntar al cliente: «¿Ha visto este documento?» usando Sonkeigo. ¿Cuál es mejor?",
+          options: [
+            "この書類を見ましたか。",
+            "この書類をご覧になりましたか。",
+            "この書類をご覧しますか。"
+          ],
+          correctIndex: 1,
+          explanation: "Para ver en Sonkeigo usamos ご覧になる: 「ご覧になりましたか。」"
+        }
+      },
+      {
+        id: 6,
+        name: "Jardín",
+        theme: "jardin",
+        bg: "jardin.png",
+        doorSide: "left",
+        question: {
+          text: "En el jardín, tú (empleado) vas a explicar que YA has enviado el correo al cliente usando Kenjōgo. ¿Cuál es correcto?",
+          options: [
+            "メールを送りました。",
+            "メールをお送りになりました。",
+            "メールをお送りいたしました。"
+          ],
+          correctIndex: 2,
+          explanation: "Para tus propias acciones humildes usas Kenjōgo + いたします: お送りいたしました。"
+        }
+      },
+      {
+        id: 7,
+        name: "Piscina",
+        theme: "piscina",
+        bg: "piscina.png",
+        doorSide: "top",
+        question: {
+          text: "Junto a la piscina, tú vas a decir: «Yo le contaré los detalles más tarde» usando Kenjōgo. ¿Cuál opción es mejor?",
+          options: [
+            "あとで、くわしく話します。",
+            "あとで、くわしくご説明いたします。",
+            "あとで、くわしくご説明なさいます。"
+          ],
+          correctIndex: 1,
+          explanation: "ご説明いたします es Kenjōgo (humilde) para hablar de tu propia explicación hacia el interlocutor."
+        }
+      },
+      {
+        id: 8,
+        name: "Azotea",
+        theme: "azotea",
+        bg: "azotea.png",
+        doorSide: "right",
+        question: {
+          text: "En la azotea, le preguntas muy cortésmente al profesor dónde vive. ¿Cuál Sonkeigo es adecuado?",
+          options: [
+            "どこに住んでいますか。",
+            "どちらにお住まいですか。",
+            "どこにいらっしゃいますか。"
+          ],
+          correctIndex: 1,
+          explanation: "Para preguntar la dirección en Sonkeigo se usa お住まい: 「どちらにお住まいですか。」"
+        }
+      },
+      {
+        id: 9,
+        name: "Estudio con chimenea",
+        theme: "chimenea",
+        bg: "chimenea.png",
+        doorSide: "bottom",
+        question: {
+          text: "Frente a la chimenea, por teléfono quieres decir humildemente: «Soy Tanaka de la empresa X» usando Kenjōgo típico. ¿Cuál expresión es más natural?",
+          options: [
+            "会社Xの田中です。",
+            "会社Xの田中でございます。",
+            "会社Xの田中でいらっしゃいます。"
+          ],
+          correctIndex: 1,
+          explanation: "En auto-presentación humilde se usa 〜でございます como forma de Keigo más formal: 田中でございます。"
+        }
+      }
+    ];
+
+    const totalRooms = rooms.length;
+
+    // Estado del jugador (bolita roja más grande)
+    const player = {
+      x: WIDTH / 2,
+      y: HEIGHT / 2 + 80,
+      radius: 20,   // más grande
+      speed: 3
+    };
+
+    let currentRoomIndex = 0;
+    let keys = {};
+    let nearDoor = false;
+    let quizOpen = false;
+    let currentQuizRoom = null;
+    let clearedRooms = 0;
+
+    // Puerta: posición según doorSide de la habitación
+    function getDoorRect(room) {
+      const innerX = 60;
+      const innerY = 60;
+      const innerW = WIDTH - 120;
+      const innerH = HEIGHT - 120;
+
+      const doorW = 40;
+      const doorH = 80;
+
+      let x, y;
+
+      switch (room.doorSide) {
+        case "left":
+          x = innerX + 10;
+          y = innerY + innerH / 2 - doorH / 2;
+          break;
+        case "top":
+          x = innerX + innerW / 2 - doorW / 2;
+          y = innerY + 10;
+          break;
+        case "bottom":
+          x = innerX + innerW / 2 - doorW / 2;
+          y = innerY + innerH - doorH - 10;
+          break;
+        case "right":
+        default:
+          x = innerX + innerW - doorW - 10;
+          y = innerY + innerH / 2 - doorH / 2;
+          break;
+      }
+
+      return { x, y, w: doorW, h: doorH };
+    }
+
+    // Colisión círculo-rectángulo
+    function circleRectCollision(circle, rect) {
+      const distX = Math.abs(circle.x - (rect.x + rect.w / 2));
+      const distY = Math.abs(circle.y - (rect.y + rect.h / 2));
+      if (distX > (rect.w / 2 + circle.radius)) return false;
+      if (distY > (rect.h / 2 + circle.radius)) return false;
+      if (distX <= (rect.w / 2)) return true;
+      if (distY <= (rect.h / 2)) return true;
+      const dx = distX - rect.w / 2;
+      const dy = distY - rect.h / 2;
+      return (dx * dx + dy * dy <= circle.radius * circle.radius);
+    }
+
+    // Fondo de la habitación (imagen + paredes + puerta)
+    function drawRoomBackground(room) {
+      let baseColor = "#0f172a";
+      switch (room.theme) {
+        case "living": baseColor = "#1e293b"; break;
+        case "comedor": baseColor = "#1e2530"; break;
+        case "cocina": baseColor = "#152238"; break;
+        case "biblioteca": baseColor = "#1b1a22"; break;
+        case "dormitorio": baseColor = "#141b2f"; break;
+        case "bano": baseColor = "#11212f"; break;
+        case "jardin": baseColor = "#0b2f20"; break;
+        case "piscina": baseColor = "#03263a"; break;
+        case "azotea": baseColor = "#15182d"; break;
+        case "chimenea": baseColor = "#20141b"; break;
+      }
+
+      ctx.fillStyle = baseColor;
+      ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+      const innerX = 60;
+      const innerY = 60;
+      const innerW = WIDTH - 120;
+      const innerH = HEIGHT - 120;
+
+      if (room.bg) {
+        const img = getBgImage(room.bg);
+        if (img && img.complete) {
+          ctx.drawImage(img, innerX, innerY, innerW, innerH);
+        } else {
+          ctx.fillStyle = "rgba(15,23,42,0.7)";
+          ctx.fillRect(innerX, innerY, innerW, innerH);
+        }
+      } else {
+        ctx.fillStyle = "rgba(15,23,42,0.7)";
+        ctx.fillRect(innerX, innerY, innerW, innerH);
+      }
+
+      ctx.strokeStyle = "#94a3b8";
+      ctx.lineWidth = 4;
+      ctx.strokeRect(innerX, innerY, innerW, innerH);
+
+      const door = getDoorRect(room);
+      ctx.fillStyle = "rgba(15,23,42,0.9)";
+      ctx.fillRect(door.x, door.y, door.w, door.h);
+      ctx.strokeStyle = "#eab308";
+      ctx.lineWidth = 3;
+      ctx.strokeRect(door.x, door.y, door.w, door.h);
+    }
+
+    // Dibujar jugador (bolita roja)
+    function drawPlayer() {
+      ctx.fillStyle = "#ef4444"; // rojo llamativo
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "rgba(254,202,202,0.9)";
+      ctx.beginPath();
+      ctx.arc(player.x - 3, player.y - 3, player.radius - 6, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = "#111827";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // Movimiento del jugador
+    function updatePlayer() {
+      let dx = 0, dy = 0;
+      if (keys["ArrowUp"]) dy -= 1;
+      if (keys["ArrowDown"]) dy += 1;
+      if (keys["ArrowLeft"]) dx -= 1;
+      if (keys["ArrowRight"]) dx += 1;
+
+      if (dx !== 0 || dy !== 0) {
+        const len = Math.sqrt(dx * dx + dy * dy);
+        dx /= len;
+        dy /= len;
+        const newX = player.x + dx * player.speed;
+        const newY = player.y + dy * player.speed;
+
+        const margin = 80;
+        if (newX - player.radius > margin && newX + player.radius < WIDTH - margin) {
+          player.x = newX;
+        }
+        if (newY - player.radius > margin && newY + player.radius < HEIGHT - margin) {
+          player.y = newY;
+        }
+      }
+    }
+
+    // Dibujar escena
+    function drawScene() {
+      const room = rooms[currentRoomIndex];
+      drawRoomBackground(room);
+      drawPlayer();
+
+      hudRoomName.textContent = room.name;
+      hudProgress.textContent = `${clearedRooms} / ${totalRooms}`;
+
+      const door = getDoorRect(room);
+      nearDoor = circleRectCollision(player, door) && currentRoomIndex < totalRooms;
+      doorMessage.style.display = nearDoor && !quizOpen ? "block" : "none";
+
+      ctx.fillStyle = "rgba(248,250,252,0.8)";
+      ctx.font = "14px system-ui";
+      if (currentRoomIndex < totalRooms - 1) {
+        ctx.fillText("Puerta a la siguiente habitación", door.x - 130, door.y + door.h / 2);
+      } else {
+        ctx.fillText("Última habitación", door.x - 90, door.y + door.h / 2);
+      }
+    }
+
+    // Abrir quiz
+    function openQuiz(roomIndex) {
+      const room = rooms[roomIndex];
+      currentQuizRoom = roomIndex;
+      quizOpen = true;
+
+      quizRoomName.textContent = room.name;
+      quizQuestion.textContent = room.question.text;
+      quizOptions.innerHTML = "";
+      quizFeedback.textContent = "";
+
+      room.question.options.forEach((opt, idx) => {
+        const btn = document.createElement("button");
+        btn.className = "quiz-btn";
+        btn.textContent = opt;
+        btn.onclick = () => handleAnswer(idx);
+        quizOptions.appendChild(btn);
+      });
+
+      quizOverlay.style.display = "flex";
+    }
+
+    // Manejar respuesta del quiz
+    function handleAnswer(optionIndex) {
+      const room = rooms[currentQuizRoom];
+      if (optionIndex === room.question.correctIndex) {
+        quizFeedback.style.color = "#4ade80";
+        quizFeedback.textContent = "✅ ¡Correcto! " + room.question.explanation;
+        if (!room.cleared) {
+          room.cleared = true;
+          clearedRooms++;
+        }
+        setTimeout(() => {
+          quizOverlay.style.display = "none";
+          quizOpen = false;
+          goToNextRoom();
+        }, 1100);
+      } else {
+        quizFeedback.style.color = "#f97316";
+        quizFeedback.textContent = "❌ No exactamente. Piensa si estás elevando a la otra persona (Sonkeigo) o bajándote tú (Kenjōgo).";
+      }
+    }
+
+    // Pasar a la siguiente habitación
+    function goToNextRoom() {
+      if (currentRoomIndex < totalRooms - 1) {
+        currentRoomIndex++;
+        player.x = WIDTH / 2;
+        player.y = HEIGHT / 2 + 80;
+      }
+      if (clearedRooms >= totalRooms) {
+        winOverlay.style.display = "flex";
+      }
+    }
+
+    // Bucle del juego
+    function gameLoop() {
+      if (!quizOpen) {
+        updatePlayer();
+      }
+      drawScene();
+      requestAnimationFrame(gameLoop);
+    }
+
+    // Controles
+    window.addEventListener("keydown", (e) => {
+      if (e.code === "Space") {
+        e.preventDefault();
+        if (!quizOpen && nearDoor) {
+          openQuiz(currentRoomIndex);
+        }
+      }
+      keys[e.key] = true;
+    });
+
+    window.addEventListener("keyup", (e) => {
+      keys[e.key] = false;
+    });
+
+    // Iniciar juego
+    function initGame() {
+      currentRoomIndex = 0;
+      clearedRooms = 0;
+      player.x = WIDTH / 2;
+      player.y = HEIGHT / 2 + 80;
+      gameLoop();
+    }
+
+    initGame();
+  </script>
+</body>
+</html>
